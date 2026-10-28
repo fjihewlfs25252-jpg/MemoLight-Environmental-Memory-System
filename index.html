@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MemoLight Dashboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app-container">
+
+  <aside class="sidebar">
+    <div class="brand"><h2>MemoLight</h2><p>v2.1 - PROTOTYPE</p></div>
+    <nav class="nav-menu">
+      <a href="#" onclick="return switchPage('dashboard')" class="nav-item active" id="nav-dashboard">📊 Dashboard</a>
+      <a href="#" onclick="return switchPage('live')" class="nav-item" id="nav-live">🟢 Live Mode</a>
+      <a href="#" onclick="return switchPage('record')" class="nav-item" id="nav-record">🔴 Record Environment</a>
+      <a href="#" onclick="return switchPage('library')" class="nav-item" id="nav-library">💾 Memory Library</a>
+      <a href="#" onclick="return switchPage('replay')" class="nav-item" id="nav-replay">▶️ Replay Mode</a>
+      <a href="#" onclick="return switchPage('test')" class="nav-item" id="nav-test">🧪 Test Lab</a>
+      <a href="#" onclick="return switchPage('status')" class="nav-item" id="nav-status">⚙️ System Status</a>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="status-dot"></span> <strong id="sys-state">NOT CONNECTED</strong>
+      <p id="conn-sub">No Arduino connected</p>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="topbar">
+      <span id="breadcrumb">MEMOLIGHT &gt; DASHBOARD</span>
+      <div class="topbar-right">
+        <span id="replay-badge" style="display:none;">▶ REPLAYING</span>
+        <span id="clock"></span>
+        <button id="btn-connect" class="btn-connect" onclick="connectArduino()">🔌 CONNECT ARDUINO</button>
+        <span class="badge-online" id="badge-conn">○ OFFLINE</span>
+      </div>
+    </header>
+
+    <!-- DASHBOARD -->
+    <section id="page-dashboard" class="page active">
+      <div class="page-header"><h2>MEMOLIGHT</h2><p>Environmental Memory &amp; Replay System</p></div>
+      <div class="cards-grid">
+        <div class="card"><h3>TEMPERATURE</h3><p class="card-value temp-value">— °C</p></div>
+        <div class="card"><h3>HUMIDITY</h3><p class="card-value humidity-value">— %</p></div>
+        <div class="card"><h3>LIGHT LEVEL</h3><p class="card-value light-value">—</p></div>
+      </div>
+      <div class="card ambient-card mt">
+        <h3>CURRENT AMBIENT LIGHT OUTPUT</h3>
+        <div class="ambient-flex">
+          <div class="color-preview"></div>
+          <div><p class="color-name">—</p></div>
+        </div>
+      </div>
+
+      <div class="card mt">
+        <h3>LAMP BRIGHTNESS <span id="bright-val">100%</span></h3>
+        <input type="range" id="bright" min="5" max="100" value="100" style="margin-top:15px;" oninput="setBrightness(this.value)">
+        <p class="hint" style="margin-top:8px;">The slider never goes below 5%. Use TURN OFF LAMP to switch the lamp off.</p>
+      </div>
+
+      <div class="action-buttons-bar">
+        <button class="btn-on" onclick="sendCommand('ON')">TURN ON LAMP</button>
+        <button class="btn-off" onclick="sendCommand('OFF')">TURN OFF LAMP</button>
+        <span id="lamp-state" class="hint">Lamp: —</span>
+        <button class="btn-cyan" onclick="switchPage('record')">RECORD ENVIRONMENT</button>
+        <button class="btn-dark" onclick="switchPage('library')">MEMORY LIBRARY</button>
+      </div>
+      <div class="action-buttons-bar">
+        <button class="btn-dark" onclick="stopMemoryReplay()">⏹ STOP NIGHT MEMORY REPLAY</button>
+        <button class="btn-cyan" onclick="resumeMemoryReplay()">▶ RESUME NIGHT MEMORY REPLAY</button>
+      </div>
+    </section>
+
+    <!-- LIVE MODE -->
+    <section id="page-live" class="page">
+      <div class="page-header"><h2>LIVE MODE</h2><p>The lamp follows the room in real time</p></div>
+      <div class="cards-grid">
+        <div class="card"><h3>TEMPERATURE</h3><p class="card-value temp-value">— °C</p></div>
+        <div class="card"><h3>HUMIDITY</h3><p class="card-value humidity-value">— %</p></div>
+        <div class="card"><h3>LIGHT LEVEL</h3><p class="card-value light-value">—</p></div>
+      </div>
+      <div class="card ambient-card mt">
+        <div class="ambient-flex">
+          <div class="color-preview"></div>
+          <div><p class="color-name">—</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RECORD -->
+    <section id="page-record" class="page">
+      <div class="page-header"><h2>RECORD ENVIRONMENT</h2><p>Press start, and the room is recorded in this browser until you press stop</p></div>
+      <div class="card mt">
+        <div class="rec-banner">
+          <div>
+            <div id="rec-state" class="rec-state">○ NOT RECORDING</div>
+            <div id="rec-timer" class="rec-timer">00:00:00</div>
+          </div>
+          <div>
+            <p>Started: <strong id="rec-started">—</strong></p>
+            <p>Readings captured: <strong id="rec-count">0</strong></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mt">
+        <h3>SD CARD (AUTOMATIC LAMP MEMORY)</h3>
+        <p class="sub" id="sd-status" style="margin-top:8px;">💾 SD card: Not connected</p>
+        <p class="hint" style="font-size:13px;margin-top:8px;">Manual recordings made here are saved <strong>in this browser only</strong>. The lamp records to the SD card by itself during the day and replays it at night. The two are separate: Start / Stop Recording never changes the SD card.</p>
+        <p class="hint" id="sd-note" style="margin-top:6px;font-size:13px;"></p>
+
+        <h3 style="margin-top:16px;">AUTOMATIC SD RECORDING</h3>
+        <p class="sub" id="sdrec-state" style="margin-top:6px;">Not connected</p>
+        <p class="hint" style="font-size:13px;margin-top:6px;">Turning it OFF stops the lamp's daytime recording to the SD card. An unfinished recording is discarded and the previous saved memory is kept. Day/night detection, the lamp colors and the night replay of the saved memory keep working. Turning it ON again resumes recording (right away if it is daytime, otherwise at the next day).</p>
+        <div class="action-buttons-bar" style="margin-top:12px;">
+          <button class="btn-red btn-small" onclick="setAutoSdRec(false)">⏸ TURN OFF AUTOMATIC SD RECORDING</button>
+          <button class="btn-green btn-small" onclick="setAutoSdRec(true)">▶ TURN ON AUTOMATIC SD RECORDING</button>
+        </div>
+      </div>
+
+      <div class="cards-grid">
+        <div class="card"><h3>TEMPERATURE</h3><p class="card-value temp-value">— °C</p></div>
+        <div class="card"><h3>HUMIDITY</h3><p class="card-value humidity-value">— %</p></div>
+        <div class="card"><h3>LIGHT LEVEL</h3><p class="card-value light-value">—</p></div>
+      </div>
+      <div class="card ambient-card mt">
+        <div class="ambient-flex">
+          <div class="color-preview"></div>
+          <div><p class="color-name">—</p></div>
+        </div>
+      </div>
+      <div class="action-buttons-bar">
+        <button class="btn-green" onclick="startRecording()">🔴 START RECORDING</button>
+        <button class="btn-red" onclick="stopRecording()">⏹ STOP &amp; SAVE</button>
+      </div>
+    </section>
+
+    <!-- MEMORY LIBRARY -->
+    <section id="page-library" class="page">
+      <div class="page-header"><h2>MEMORY LIBRARY</h2><p>Your saved recordings</p></div>
+
+      <h3 class="section-title">MANUAL RECORDINGS (saved in this browser only)</h3>
+      <ul class="record-list" id="session-list"></ul>
+
+      <h3 class="section-title">LAMP SD MEMORY (recorded automatically by the lamp, MEMORY.CSV)</h3>
+      <div class="action-buttons-bar" style="margin-top:12px;">
+        <button class="btn-dark btn-small" onclick="sdRefreshList()">🔄 REFRESH</button>
+        <span class="hint" id="sd-msg" style="font-size:13px;"></span>
+      </div>
+      <ul class="record-list" id="sd-list"></ul>
+    </section>
+
+    <!-- REPLAY -->
+    <section id="page-replay" class="page">
+      <div class="page-header"><h2>REPLAY MODE</h2><p>Play a recording back as light, on repeat, for as long as you need</p></div>
+
+      <div class="card mt">
+        <h3>NOW PLAYING</h3>
+        <p class="card-value" id="replay-now" style="font-size:24px;">Nothing playing</p>
+        <p id="replay-pos" class="sub" style="margin-bottom:10px;">Choose a recording and press Replay.</p>
+        <div class="progress-bar"><div class="fill" id="replay-fill" style="width:0;"></div></div>
+        <p class="sub" style="font-size:13px;margin-top:8px;">Replaying for: <strong id="replay-elapsed">00:00:00</strong></p>
+      </div>
+
+      <div class="cards-grid">
+        <div class="card"><h3>TEMPERATURE</h3><p class="card-value temp-value">— °C</p></div>
+        <div class="card"><h3>HUMIDITY</h3><p class="card-value humidity-value">— %</p></div>
+        <div class="card"><h3>LIGHT LEVEL</h3><p class="card-value light-value">—</p></div>
+      </div>
+
+      <div class="card ambient-card mt">
+        <div class="ambient-flex">
+          <div class="color-preview"></div>
+          <div><p class="color-name">—</p></div>
+        </div>
+      </div>
+
+      <div class="action-buttons-bar">
+        <select id="replay-pick"></select>
+        <select id="replay-speed">
+          <option value="2000">Real time (2 s per reading)</option>
+          <option value="1000" selected>Fast (1 s per reading)</option>
+        </select>
+        <label class="hint" style="font-size:14px;"><input type="checkbox" id="replay-loop" checked> Loop</label>
+        <button class="btn-cyan" onclick="replayPicked()">▶️ REPLAY</button>
+        <button class="btn-red" onclick="stopReplay()">⏹ STOP</button>
+      </div>
+      <p class="hint" style="font-size:13px;margin-top:12px;">This list shows your manual (browser) recordings. To replay the lamp's SD memory, open Memory Library and press Replay under Lamp SD Memory.</p>
+    </section>
+
+    <!-- TEST LAB -->
+    <section id="page-test" class="page">
+      <div class="page-header"><h2>TEST LAB</h2><p>Pick a color, or set the temperature, humidity and light yourself, and see what the lamp does</p></div>
+
+      <div class="card mt">
+        <h3>TEMPERATURE <span id="test-temp-val">31.0 °C</span></h3>
+        <input type="range" id="test-temp" min="20" max="40" step="0.1" value="31" oninput="testSliderMoved()" style="margin:12px 0 20px;">
+        <h3>HUMIDITY <span id="test-hum-val">60 %</span></h3>
+        <input type="range" id="test-hum" min="20" max="100" step="1" value="60" oninput="testSliderMoved()" style="margin:12px 0 20px;">
+        <h3>LIGHT LEVEL <span id="test-light-val">50 %</span></h3>
+        <input type="range" id="test-light" min="0" max="100" step="1" value="50" oninput="testSliderMoved()" style="margin:12px 0 4px;">
+        <p class="hint">0% = darkest your room gets, 100% = brightest</p>
+      </div>
+
+      <div class="card ambient-card mt">
+        <div class="ambient-flex">
+          <div class="color-preview"></div>
+          <div><p class="color-name">—</p></div>
+        </div>
+      </div>
+
+      <div class="action-buttons-bar">
+        <button class="btn-green" onclick="startTest()">🧪 START TEST</button>
+        <button class="btn-red" onclick="stopTest()">⏹ STOP TEST</button>
+      </div>
+      <p id="test-state" class="hint" style="font-size:14px;margin-top:12px;">Test is off. The lamp follows the room.</p>
+
+      <h3 class="section-title">PICK A COLOR (dark to light, clockwise from the top)</h3>
+      <div class="wheel-wrap">
+        <div class="wheel" id="wheel" onclick="wheelClick(event)" title="Click a color">
+          <div class="wheel-marker" id="wheel-marker" style="display:none;"></div>
+          <div class="wheel-hole" id="wheel-hole">
+            <b id="wheel-name">Click the wheel</b>
+            <span id="wheel-vals">See the temperature, humidity and light it needs.</span>
+          </div>
+        </div>
+      </div>
+      <p id="pal-detail">Click a color and the lamp will show exactly that color.</p>
+      <div class="pal-grid" id="pal-grid"></div>
+      <p class="pal-note">Tip: picking a color shows that exact palette color. Moving the sliders instead lets the lamp work out the color from the temperature, humidity and light (humidity and light move it up to 3 steps each).</p>
+    </section>
+
+    <!-- SYSTEM STATUS -->
+    <section id="page-status" class="page">
+      <div class="page-header"><h2>SYSTEM STATUS</h2><p>Connection: <strong id="status-conn">Not connected</strong></p></div>
+
+      <div class="card mt">
+        <h3>SD CARD</h3>
+        <p class="sub" id="status-sd" style="margin-top:6px;">Not connected</p>
+        <p class="hint" id="status-sd-note" style="margin-top:6px;font-size:13px;"></p>
+        <div class="action-buttons-bar" style="margin-top:16px;">
+          <button class="btn-dark btn-small" onclick="requestStatus()">🔄 CHECK AGAIN</button>
+        </div>
+      </div>
+
+      <div class="log-box" id="log-box"></div>
+    </section>
+  </main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
